@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -156,64 +157,69 @@ public class ReadDataUtil {
     public static void readConfiguration(String path, CelestialBodyCollection bodies, int day) throws FileNotFoundException, FileFormatException {
 
         BufferedReader in;
-        String[][] lines;
+        MyLine[] lines = new MyLine[0];
 
         System.out.println(path);
 
-        // check file
         try {
-            String[] expected = {"BODY", "YEAR", "DAY", "RAD_AU", "SE_LAT", "SE_LON"};
+            // check file
+            File file = new File(path);
 
-            in = new BufferedReader(new FileReader(path));
-            ArrayList<String[]> input = new ArrayList<>();
+            if(!file.exists())
+                throw new FileNotFoundException("File doesnt exist: ", path);
+
+            in = new BufferedReader(new FileReader(file));
+            ArrayList<MyLine> input = new ArrayList<>();
             String input_line;
+
+            in.readLine(); // ignore first line
 
             int i = 0;
             while ((input_line = in.readLine()) != null){
+
+                // check format
                 String[] fields = input_line.split(";");
+                MyLine myLine;
 
-                if(fields.length != expected.length)
+                try {
+                    myLine = new MyLine(fields[0],fields[1],fields[2],fields[3],fields[4],fields[5]);
+                } catch (Exception e) {
                     throw new FileFormatException(i);
+                }
 
-                input.add(fields);
+                input.add(myLine);
                 i++;
             }
 
-            lines = input.toArray(new String[input.size()][]);
-
-            // check format
-            String[] format = lines[0];
-
-            if (!Arrays.equals(expected, format))
-                throw new FileFormatException(0);
+            lines = input.toArray(new MyLine[input.size()]);
 
         } catch (IOException e) {
-            throw new FileNotFoundException(e);
+            System.out.println("unhandled expectation");
         }
 
-        // same code as before
+        // same code as before but different
         for (CelestialBody body : bodies) {
             for (int i = 1; i < lines.length - 1; i++) {
-                String[] fields = lines[i];
+                MyLine fields = lines[i];
                 Vector3 velocity = new Vector3(0, 0, 0);
                 Vector3 position = new Vector3(0, 0, 0);
 
-                if (fields[0].equals(body.getName()) && Integer.parseInt(fields[2]) == day) {
+                if (fields.getBody().equals(body.getName()) && fields.getDay() == day) {
                     int j = 0;
                     while (velocity.length() < 1e9) {
                         j++;
-                        String[] fieldsNext = lines[i + j];
-                        String[] fieldsPrev = lines[i - j];
-                        double lon = Double.parseDouble(fields[5]);
-                        double lat = Double.parseDouble(fields[4]);
-                        double rad = Double.parseDouble(fields[3]) * AU;
+                        MyLine fieldsNext = lines[i + j];
+                        MyLine fieldsPrev = lines[i - j];
+                        double lon = fields.getSeLon();
+                        double lat = fields.getSeLat();
+                        double rad = fields.getRadAu() * AU;
 
-                        double lonNext = Double.parseDouble(fieldsNext[5]);
-                        double latNext = Double.parseDouble(fieldsNext[4]);
-                        double radNext = Double.parseDouble(fieldsNext[3]) * AU;
-                        double lonPrev = Double.parseDouble(fieldsPrev[5]);
-                        double latPrev = Double.parseDouble(fieldsPrev[4]);
-                        double radPrev = Double.parseDouble(fieldsPrev[3]) * AU;
+                        double lonNext = fieldsNext.getSeLon();
+                        double latNext = fieldsNext.getSeLat();
+                        double radNext = fieldsNext.getRadAu() * AU;
+                        double lonPrev = fieldsPrev.getSeLon();
+                        double latPrev = fieldsPrev.getSeLat();
+                        double radPrev = fieldsPrev.getRadAu() * AU;
 
                         position = asCartesian(lon, lat, rad);
                         Vector3 posNext = asCartesian(lonNext, latNext, radNext);
